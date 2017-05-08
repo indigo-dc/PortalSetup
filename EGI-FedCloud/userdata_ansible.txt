@@ -1,0 +1,84 @@
+[rbruno@emi-tutor ~]$ cat  ansibleuserdata.txt 
+#cloud-config
+hostname: fgtest 
+manage_etc_hosts: true
+package_update: true
+package_upgrade: true
+users:
+    - name: fgtest
+      groups: sudo
+      shell: /bin/bash
+      sudo: ['ALL=(ALL) NOPASSWD:ALL']
+      lock-passwd: true
+      ssh-import-id: fgtest 
+      ssh-authorized-keys:
+        - <Add your SSH public keys>
+write_files:
+  - path: /root/vm_setup.sh
+    permissions: "0755"
+    owner: "root"
+    content: |
+      #!/bin/bash
+      #
+      # Setup VM
+      #
+      # Configure the appliance options below:
+      SSH_PORT="22"          # User can specify any ssh port (use 22 for default)
+      VM_REBOOT=0            # When true causes reboot of the machine 
+      # Update nameservers
+      echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+      echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+      # Reconfigure SSH port as requested
+      sed -i -e "/^Port/s/^.*$/Port ${SSH_PORT}/" /etc/ssh/sshd_config
+      sed -i -e "/^PermitRootLogin/s/^.*$/PermitRootLogin yes/" /etc/ssh/sshd_config
+      restart ssh
+      # Configure ufw
+      sed -i -e '/^IPV6/s/^.*$/IPV6=no/' /etc/default/ufw
+      ufw enable
+      ufw default deny incoming
+      ufw default allow outgoing
+      ufw allow $SSH_PORT/tcp
+      ufw allow 80/tcp
+      ufw allow 8080/tcp
+      # More safe removing ubuntu user
+      [ -d /home/ubuntu ] && userdel ubuntu && sudo rm -rf /home/ubuntu/
+      # Start installation process
+      touch /home/fgtest/.setup_vm
+      # Move to /root directory and download from Git the current fgSetup.sh script
+      cd /root
+      cat /dev/zero | ssh-keygen -q -N ""
+      cat /root/.ssh/id_rsa.pub >> /home/fgtest/.ssh/authorized_keys
+      # Latest Ansible
+      apt-get install -y software-properties-common
+      apt-add-repository -y ppa:ansible/ansible
+      apt-get update -y
+      apt-get install -y git ansible
+      # Generate ssh keys and add pub key to root' authorized_users
+      ssh-keygen -b 2048 -t rsa -f /tmp/sshkey -q -N ""
+      cat .ssh/id_rsa.pub >> .ssh/authorized_keys
+      su - fgtest -c "ssh-keygen -t rsa -N '' -f \$HOME/.ssh/id_rsa"
+      cat /home/fgtest/.ssh/id_rsa.pub >> .ssh/authorized_keys
+      ssh-keyscan -H -p $SSH_PORT `hostname` >> .ssh/known_hosts
+      # Start ansible installation
+      ansible-galaxy install geerlingguy.git
+      ansible-galaxy install geerlingguy.mysql
+      ansible-galaxy install geerlingguy.apache
+      ansible-galaxy install bobbyrenwick.pip
+      git clone https://github.com/indigo-dc/fgSetup.git
+      cd fgSetup/ansible
+      ansible-playbook -i hosts setupdb.yml
+      ansible-playbook -i hosts setupfgapiserver.yml
+      ansible-playbook -i hosts setupapiserverdaemon.yml
+      # Setup finished, modify the futuregateway installation flag accordingly
+      rm -f /home/fgtest/.setup_vm
+      # After the installation the VM will not start automatically unless
+      # specifying this in VMREBOOT flag 
+      if [ $VM_REBOOT -ne 0 ]; then
+        echo "Rebooting in 15 secs"
+        shutdown -r -t 15
+      else
+        echo "Installation completed"
+      fi
+runcmd:
+  - /bin/bash /root/vm_setup.sh 2>/root/.vm_setup.err > /root/.vm_setup.out
+ 
