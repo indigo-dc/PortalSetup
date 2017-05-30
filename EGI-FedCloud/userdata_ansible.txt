@@ -1,4 +1,3 @@
-[rbruno@emi-tutor ~]$ cat  ansibleuserdata.txt 
 #cloud-config
 hostname: fgtest 
 manage_etc_hosts: true
@@ -63,6 +62,7 @@ write_files:
       ansible-galaxy install geerlingguy.git
       ansible-galaxy install geerlingguy.mysql
       ansible-galaxy install geerlingguy.apache
+      ansible-galaxy install geerlingguy.java
       ansible-galaxy install bobbyrenwick.pip
       git clone https://github.com/indigo-dc/fgSetup.git
       cd fgSetup/ansible
