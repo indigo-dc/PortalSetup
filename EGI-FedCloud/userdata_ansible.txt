@@ -43,7 +43,8 @@ write_files:
       [ -d /home/ubuntu ] && userdel ubuntu && sudo rm -rf /home/ubuntu/
       # Start installation process
       touch /home/fgtest/.setup_vm
-      # Move to /root directory and download from Git the current fgSetup.sh script
+      # Move to /root directory and download from Git the current fgSetup.sh
+      # script
       cd /root
       cat /dev/zero | ssh-keygen -q -N ""
       cat /root/.ssh/id_rsa.pub >> /home/fgtest/.ssh/authorized_keys
@@ -59,16 +60,27 @@ write_files:
       cat /home/fgtest/.ssh/id_rsa.pub >> .ssh/authorized_keys
       ssh-keyscan -H -p $SSH_PORT `hostname` >> .ssh/known_hosts
       # Start ansible installation
-      ansible-galaxy install geerlingguy.git
-      ansible-galaxy install geerlingguy.mysql
-      ansible-galaxy install geerlingguy.apache
-      ansible-galaxy install geerlingguy.java
-      ansible-galaxy install bobbyrenwick.pip
-      git clone https://github.com/indigo-dc/fgSetup.git
-      cd fgSetup/ansible
-      ansible-playbook -i hosts setupdb.yml
-      ansible-playbook -i hosts setupfgapiserver.yml
-      ansible-playbook -i hosts setupapiserverdaemon.yml
+      echo "Installing necessary roles"
+      ROLES=(geerlingguy.git\
+             geerlingguy.mysql\
+             geerlingguy.apache\
+             geerlingguy.java\
+             bobbyrenwick.pip)
+      for role in ${ROLES[*]}; do
+          echo "Installing role: '"$role"'"
+          ansible-galaxy install $role || exit 1
+      done 
+      echo "Cloning fgSetup repository"
+      git clone https://github.com/indigo-dc/fgSetup.git &&\
+      cd fgSetup/ansible || exit 2
+      echo "Executing playbooks"
+      PLAYBOOKS=(setupdb.yml\
+                 setupfgapiserver.yml\
+                 setupapiserverdaemon.yml)
+      for playbook in ${PLAYBOOKS[*]}; do
+          echo "Installing playbook '"$playbook"'"
+          ansible-playbook -i hosts $playbook || exit 3
+      done
       # Setup finished, modify the futuregateway installation flag accordingly
       rm -f /home/fgtest/.setup_vm
       # After the installation the VM will not start automatically unless
@@ -81,4 +93,3 @@ write_files:
       fi
 runcmd:
   - /bin/bash /root/vm_setup.sh 2>/root/.vm_setup.err > /root/.vm_setup.out
- 
