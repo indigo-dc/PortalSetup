@@ -23,7 +23,9 @@ write_files:
       #
       # Configure the appliance options below:
       SSH_PORT="22"          # User can specify any ssh port (use 22 for default)
-      VM_REBOOT=0            # When true causes reboot of the machine 
+      VM_REBOOT=0            # When true causes reboot of the machine
+      FGSETUP=1              # Non zero value enable FG installation
+      FGTEST=1               # Non zero value enables fgtest execution
       # Update nameservers
       echo "nameserver 8.8.8.8" >> /etc/resolv.conf
       echo "nameserver 8.8.4.4" >> /etc/resolv.conf
@@ -42,6 +44,7 @@ write_files:
       # More safe removing ubuntu user
       [ -d /home/ubuntu ] && userdel ubuntu && sudo rm -rf /home/ubuntu/
       # Start installation process
+      [ $FGSETUP -eq 0 ] && return 0 || echo "Setting up FutureGateway ..."
       touch /home/fgtest/.setup_vm
       # Move to /root directory and download from Git the current fgSetup.sh
       # script
@@ -77,6 +80,9 @@ write_files:
       PLAYBOOKS=(setupdb.yml\
                  setupfgapiserver.yml\
                  setupapiserverdaemon.yml)
+      if [ $FGTEST -ne 0 ]; then
+          PLAYBOOKS+=(setupfgtest.yml)
+      fi
       for playbook in ${PLAYBOOKS[*]}; do
           echo "Installing playbook '"$playbook"'"
           ansible-playbook -i hosts $playbook || exit 3
@@ -93,3 +99,4 @@ write_files:
       fi
 runcmd:
   - /bin/bash /root/vm_setup.sh 2>/root/.vm_setup.err > /root/.vm_setup.out
+
