@@ -44,7 +44,7 @@ write_files:
       # More safe removing ubuntu user
       [ -d /home/ubuntu ] && userdel ubuntu && sudo rm -rf /home/ubuntu/
       # Start installation process
-      [ $FGSETUP -eq 0 ] && return 0 || echo "Setting up FutureGateway ..."
+      [ $FGSETUP -eq 0 ] && exit 0 || echo "Setting up FutureGateway ..."
       touch /home/fgtest/.setup_vm
       # Move to /root directory and download from Git the current fgSetup.sh
       # script
